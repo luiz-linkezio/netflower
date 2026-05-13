@@ -12,7 +12,6 @@ Parallelism strategy (n_jobs > 1):
 """
 
 import os
-import socket
 import tempfile
 from multiprocessing import Process, Queue
 from typing import Iterator
@@ -22,6 +21,7 @@ import dpkt.pcapng
 
 from ._session import FlowSession
 from ._writer import CsvWriter
+from ._parser import _parse_packet
 from ._constants import FLOW_TIMEOUT, CSV_BUFFER_ROWS
 
 
@@ -30,7 +30,6 @@ def _open_pcap(path: str):
     with open(path, "rb") as fh:
         magic = fh.read(4)
 
-    # pcapng uses a Section Header Block with magic 0x0A0D0D0A
     if magic == b"\x0a\x0d\x0d\x0a":
         return _iter_pcapng(path)
     return _iter_pcap(path)
@@ -44,55 +43,6 @@ def _iter_pcap(path: str) -> Iterator[tuple[float, bytes]]:
 def _iter_pcapng(path: str) -> Iterator[tuple[float, bytes]]:
     with open(path, "rb") as fh:
         yield from dpkt.pcapng.Reader(fh)
-
-
-def _parse_packet(buf: bytes):
-    """
-    Parse an Ethernet frame and return the fields needed by FlowSession.
-
-    Returns None if the packet is not IPv4 TCP/UDP.
-
-    Return tuple:
-        (src_ip, dst_ip, src_port, dst_port, protocol,
-         pkt_len, header_len, payload_len, flags, window)
-    """
-    try:
-        eth = dpkt.ethernet.Ethernet(buf)
-    except Exception:
-        return None
-
-    ip = eth.data
-    if not isinstance(ip, dpkt.ip.IP):
-        return None
-
-    src_ip = socket.inet_ntoa(ip.src)
-    dst_ip = socket.inet_ntoa(ip.dst)
-    pkt_len = len(ip)  # IP header + payload (mirrors CICFlowMeter's len(packet))
-
-    transport = ip.data
-    if isinstance(transport, dpkt.tcp.TCP):
-        src_port = transport.sport
-        dst_port = transport.dport
-        protocol = 6
-        flags = transport.flags
-        window = transport.win
-        header_len = (transport.off & 0xF0) >> 2  # data offset × 4
-        payload_len = len(transport.data)
-    elif isinstance(transport, dpkt.udp.UDP):
-        src_port = transport.sport
-        dst_port = transport.dport
-        protocol = 17
-        flags = 0
-        window = -1
-        header_len = 8  # UDP header is always 8 bytes
-        payload_len = len(transport.data)
-    else:
-        return None
-
-    return (
-        src_ip, dst_ip, src_port, dst_port, protocol,
-        pkt_len, header_len, payload_len, flags, window,
-    )
 
 
 def _route(src_ip: str, dst_ip: str, src_port: int, dst_port: int, proto: int, n_jobs: int) -> int:
@@ -111,7 +61,7 @@ def _worker(task_queue: Queue, result_queue: Queue, output_path: str,
         session = FlowSession(writer, flow_timeout)
         while True:
             item = task_queue.get()
-            if item is None:  # sentinel — no more packets
+            if item is None:
                 break
             kind = item[0]
             if kind == "pkt":
@@ -125,7 +75,6 @@ def _worker(task_queue: Queue, result_queue: Queue, output_path: str,
 
 
 def _merge_csvs(sources: list[str], output_path: str) -> None:
-    """Concatenate CSV files into output_path, skipping empty files."""
     import csv
 
     header_written = False
@@ -173,12 +122,6 @@ def convert_pcap_to_csv(
     Returns
     -------
     Number of flow rows written to the CSV.
-
-    Example
-    -------
-    >>> from pcapflower import convert_pcap_to_csv
-    >>> n = convert_pcap_to_csv("capture.pcap", "flows.csv", n_jobs=-1)
-    >>> print(f"Extracted {n} flows")
     """
     if n_jobs == 0:
         raise ValueError("n_jobs=0 is invalid. Use n_jobs=1 for single-process or n_jobs=-1 for all CPUs.")
@@ -232,7 +175,7 @@ def _convert_parallel(
     buffer_rows: int,
     n_jobs: int,
 ) -> int:
-    tmp_dir = tempfile.mkdtemp(prefix="pcapflower_")
+    tmp_dir = tempfile.mkdtemp(prefix="netflower_")
     tmp_files = [os.path.join(tmp_dir, f"worker_{i}.csv") for i in range(n_jobs)]
     task_queues = [Queue(maxsize=2000) for _ in range(n_jobs)]
     result_queue: Queue = Queue()

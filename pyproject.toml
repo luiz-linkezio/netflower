@@ -4,13 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "netflower"
-version = "1.0.0"
-description = "High-performance network flow extractor with live capture support for edge devices"
+version = "1.0.1"
+description = "High-performance network flow extractor. Captures bidirectional flows from live network interfaces or .pcap / .pcapng files and produces 82 features."
 readme = "README.md"
 license = { file = "LICENSE" }
 authors = [{ name = "Luiz Henrique", email = "luizlinkezio@gmail.com" }]
 requires-python = ">=3.10"
-keywords = ["pcap", "pcapng", "network", "flow", "CICFlowMeter", "ids", "intrusion detection", "live capture"]
+keywords = ["python", "flow", "csv", "pcap", "network", "live", "capture"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Science/Research",
@@ -32,7 +32,7 @@ dependencies = [
 dev = ["pytest", "ruff"]
 
 [project.urls]
-Repository = "https://github.com/luiz-linkezio/pcapflower"
+Repository = "https://github.com/luiz-linkezio/netflower"
 
 [tool.setuptools.packages.find]
 where = ["."]

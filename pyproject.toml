@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "netflower"
-version = "1.2.0"
+version = "1.0.0"
 description = "High-performance network flow extractor with live capture support for edge devices"
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -36,7 +36,7 @@ Repository = "https://github.com/luiz-linkezio/pcapflower"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["netflower*", "pcapflower*"]
+include = ["netflower*"]
 
 [tool.ruff]
 line-length = 100

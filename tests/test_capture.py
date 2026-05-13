@@ -100,27 +100,3 @@ def test_save_pcap_requires_pcap_dir():
         CaptureHandle(b"eth0", on_flow=lambda f: None,
                       idle_timeout=30.0, flow_timeout=120.0,
                       save_pcap=True, pcap_dir=None)
-
-
-def test_pcapflower_import_emits_deprecation_warning():
-    import importlib
-    import sys
-    for key in list(sys.modules.keys()):
-        if key.startswith("pcapflower"):
-            del sys.modules[key]
-    with pytest.warns(DeprecationWarning, match="netflower"):
-        importlib.import_module("pcapflower")
-
-
-def test_pcapflower_stub_reexports_convert():
-    import importlib
-    import sys
-    import warnings
-    for key in list(sys.modules.keys()):
-        if key.startswith("pcapflower"):
-            del sys.modules[key]
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", DeprecationWarning)
-        pcapflower = importlib.import_module("pcapflower")
-    assert hasattr(pcapflower, "convert_pcap_to_csv")
-    assert hasattr(pcapflower, "capture_live")

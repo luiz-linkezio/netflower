@@ -1,5 +1,5 @@
-from pcapflower._session import FlowSession
-from pcapflower._constants import TCP_FIN
+from netflower._session import FlowSession
+from netflower._constants import TCP_FIN
 
 
 class _Writer:

@@ -3,14 +3,14 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "pcapflower"
-version = "1.1.0"
-description = "High-performance PCAP-to-CSV network flow extractor for edge devices"
+name = "netflower"
+version = "1.0.0"
+description = "High-performance network flow extractor with live capture support for edge devices"
 readme = "README.md"
 license = { file = "LICENSE" }
 authors = [{ name = "Luiz Henrique", email = "luizlinkezio@gmail.com" }]
 requires-python = ">=3.10"
-keywords = ["pcap", "pcapng", "network", "flow", "CICFlowMeter", "ids", "intrusion detection"]
+keywords = ["pcap", "pcapng", "network", "flow", "CICFlowMeter", "ids", "intrusion detection", "live capture"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Science/Research",
@@ -36,7 +36,7 @@ Repository = "https://github.com/luiz-linkezio/pcapflower"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["pcapflower*"]
+include = ["netflower*"]
 
 [tool.ruff]
 line-length = 100

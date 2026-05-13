@@ -4,7 +4,7 @@ import struct
 
 import pytest
 
-from pcapflower import convert_pcap_to_csv
+from netflower import convert_pcap_to_csv
 
 # ── pcap / packet builders ────────────────────────────────────────────────────
 

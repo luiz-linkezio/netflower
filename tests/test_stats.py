@@ -1,5 +1,5 @@
 import pytest
-from pcapflower._stats import RunningStats
+from netflower._stats import RunningStats
 
 
 def test_empty():

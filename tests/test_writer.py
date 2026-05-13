@@ -1,5 +1,5 @@
 import csv
-from pcapflower._writer import CsvWriter
+from netflower._writer import CsvWriter
 
 
 def _row(i=0):

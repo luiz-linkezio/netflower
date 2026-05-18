@@ -1,5 +1,40 @@
 import ctypes
+import sys
 import pytest
+
+
+def test_pkthdr_struct_layout_matches_platform():
+    """PktHdr must match the C pcap_pkthdr layout for the current platform."""
+    from netflower._libpcap import PktHdr
+
+    if sys.platform == "darwin":
+        # macOS 64-bit: suseconds_t is int (4 bytes)
+        expected_size = 20
+        expected_offsets = {
+            "ts_sec":  0,
+            "ts_usec": 8,
+            "caplen":  12,
+            "len":     16,
+        }
+    else:
+        # Linux 64-bit: both tv_sec and tv_usec are long (8 bytes)
+        expected_size = 24
+        expected_offsets = {
+            "ts_sec":  0,
+            "ts_usec": 8,
+            "caplen":  16,
+            "len":     20,
+        }
+
+    assert ctypes.sizeof(PktHdr) == expected_size, (
+        f"PktHdr size {ctypes.sizeof(PktHdr)} != expected {expected_size}; "
+        "struct layout mismatch will cause segfaults on live capture"
+    )
+    for field, expected_offset in expected_offsets.items():
+        actual = getattr(PktHdr, field).offset
+        assert actual == expected_offset, (
+            f"PktHdr.{field} offset {actual} != expected {expected_offset}"
+        )
 
 
 def test_libpcap_loads():

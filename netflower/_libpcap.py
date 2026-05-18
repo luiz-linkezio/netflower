@@ -54,9 +54,9 @@ class PktHdr(ctypes.Structure):
 # Callback type for pcap_loop: void handler(u_char *user, pkthdr *h, u_char *bytes)
 PcapHandler_cb = ctypes.CFUNCTYPE(
     None,
-    ctypes.c_char_p,          # user data (unused, pass NULL)
+    ctypes.c_void_p,          # user data (unused, pass NULL)
     ctypes.POINTER(PktHdr),   # packet header
-    ctypes.c_char_p,          # packet data
+    ctypes.c_void_p,          # packet data
 )
 
 # --- Function bindings ------------------------------------------------------
@@ -77,7 +77,7 @@ pcap_loop.argtypes = [
     PcapHandler,       # handle
     ctypes.c_int,      # cnt (-1 = infinite)
     PcapHandler_cb,    # callback
-    ctypes.c_char_p,   # user data
+    ctypes.c_void_p,   # user data
 ]
 
 pcap_breakloop = _lib.pcap_breakloop

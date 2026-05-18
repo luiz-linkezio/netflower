@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "netflower"
-version = "1.0.1"
+version = "1.0.2"
 description = "High-performance network flow extractor. Captures bidirectional flows from live network interfaces or .pcap / .pcapng files and produces 82 features."
 readme = "README.md"
 license = { file = "LICENSE" }

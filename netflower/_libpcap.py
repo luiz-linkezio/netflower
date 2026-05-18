@@ -9,6 +9,7 @@ Requires libpcap installed on the system:
 
 import ctypes
 import ctypes.util
+import sys
 
 
 def _load_libpcap():
@@ -38,10 +39,13 @@ PcapHandler = ctypes.c_void_p
 PcapDumper  = ctypes.c_void_p
 
 
+# suseconds_t is int (4 bytes) on macOS, long (8 bytes) on Linux 64-bit.
+_suseconds_t = ctypes.c_int32 if sys.platform == "darwin" else ctypes.c_long
+
 class PktHdr(ctypes.Structure):
     _fields_ = [
-        ("ts_sec",  ctypes.c_uint32),
-        ("ts_usec", ctypes.c_uint32),
+        ("ts_sec",  ctypes.c_long),
+        ("ts_usec", _suseconds_t),
         ("caplen",  ctypes.c_uint32),
         ("len",     ctypes.c_uint32),
     ]

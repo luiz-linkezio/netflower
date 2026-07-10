@@ -58,6 +58,25 @@ def test_gc_evicts_expired_flows():
     assert len(w.rows) == 1
 
 
+def test_active_timeout_splits_long_lived_flow():
+    w = _Writer()
+    sess = FlowSession(w, flow_timeout=100.0, active_timeout=5.0)
+    # packets every 1s — never idle, but total duration exceeds active_timeout
+    for i in range(8):
+        sess.process(1.0 + i, "1.1.1.1", "2.2.2.2", 1000, 80, 6, 60, 20, 40)
+    sess.flush_all()
+    assert len(w.rows) == 2
+
+
+def test_gc_evicts_flows_exceeding_active_timeout():
+    w = _Writer()
+    sess = FlowSession(w, flow_timeout=100.0, active_timeout=5.0)
+    sess.process(1.0, "1.1.1.1", "2.2.2.2", 1000, 80, 6, 60, 20, 40)
+    # idle for only 6s (< 100s idle timeout) but flow is older than 5s
+    sess.gc(7.0)
+    assert len(w.rows) == 1
+
+
 def test_tcp_fin_evicts_flow_immediately():
     sess, w = _make()
     sess.process(1.0, "1.1.1.1", "2.2.2.2", 1000, 80, 6, 60, 20, 40, flags=0)

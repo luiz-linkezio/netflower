@@ -4,7 +4,7 @@ correct Flow object, and evicts expired flows to the writer.
 """
 
 from ._flow import Flow
-from ._constants import FLOW_TIMEOUT, FORWARD, BACKWARD
+from ._constants import FLOW_TIMEOUT, FORWARD, BACKWARD, TCP_FIN, TCP_RST
 
 
 class FlowSession:
@@ -69,8 +69,11 @@ class FlowSession:
 
         flow.add_packet(direction, pkt_len, header_len, payload_len, timestamp, flags, window)
 
-        # Early eviction on TCP FIN/RST — connection is closing
-        if flags & 0x05:  # FIN or RST
+        # Early eviction: RST aborts the connection immediately; FIN closes
+        # it only once both directions have sent one (CICFlowMeter semantics)
+        if flags & TCP_RST or (
+            flags & TCP_FIN and flow.fwd_fin_cnt > 0 and flow.bwd_fin_cnt > 0
+        ):
             key = fwd_key if direction == FORWARD else bwd_key
             self._flush_flow(key, flow)
 

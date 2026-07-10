@@ -32,7 +32,8 @@ class RunningStats:
 
     @property
     def variance(self) -> float:
-        return self._M2 / self.n if self.n > 1 else 0.0
+        # Sample variance (n-1), matching CICFlowMeter's Apache Commons stats
+        return self._M2 / (self.n - 1) if self.n > 1 else 0.0
 
     @property
     def std(self) -> float:

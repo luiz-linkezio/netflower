@@ -39,6 +39,7 @@ class Flow:
         # TCP flags
         "fwd_psh_cnt", "bwd_psh_cnt",
         "fwd_urg_cnt", "bwd_urg_cnt",
+        "fwd_fin_cnt", "bwd_fin_cnt",
         "fin_cnt", "syn_cnt", "rst_cnt", "psh_cnt",
         "ack_cnt", "urg_cnt", "ece_cnt", "cwr_cnt",
         # TCP initial window sizes (first packet per direction)
@@ -105,6 +106,8 @@ class Flow:
         self.bwd_psh_cnt = 0
         self.fwd_urg_cnt = 0
         self.bwd_urg_cnt = 0
+        self.fwd_fin_cnt = 0
+        self.bwd_fin_cnt = 0
         self.fin_cnt = 0
         self.syn_cnt = 0
         self.rst_cnt = 0
@@ -195,6 +198,8 @@ class Flow:
                 self.fwd_psh_cnt += 1
             if flags & TCP_URG:
                 self.fwd_urg_cnt += 1
+            if flags & TCP_FIN:
+                self.fwd_fin_cnt += 1
         else:
             self.bwd_pkt_count += 1
             self.bwd_total_bytes += pkt_len
@@ -210,6 +215,8 @@ class Flow:
                 self.bwd_psh_cnt += 1
             if flags & TCP_URG:
                 self.bwd_urg_cnt += 1
+            if flags & TCP_FIN:
+                self.bwd_fin_cnt += 1
 
         # Directional-agnostic TCP flags
         if flags:

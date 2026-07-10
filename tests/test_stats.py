@@ -25,13 +25,15 @@ def test_single_value():
 
 
 def test_known_sequence():
-    # Population: [2,4,4,4,5,5,7,9] → mean=5, std=2
+    # [2,4,4,4,5,5,7,9] → mean=5, M2=32; sample std = sqrt(32/7),
+    # matching CICFlowMeter (Apache Commons uses the n-1 estimator)
     rs = RunningStats()
     for v in [2.0, 4.0, 4.0, 4.0, 5.0, 5.0, 7.0, 9.0]:
         rs.update(v)
     assert rs.n == 8
     assert rs.mean == pytest.approx(5.0)
-    assert rs.std == pytest.approx(2.0)
+    assert rs.variance == pytest.approx(32.0 / 7.0)
+    assert rs.std == pytest.approx((32.0 / 7.0) ** 0.5)
     assert rs.safe_min == 2.0
     assert rs.safe_max == 9.0
 

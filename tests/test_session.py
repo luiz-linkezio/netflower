@@ -1,5 +1,5 @@
 from netflower._session import FlowSession
-from netflower._constants import TCP_FIN
+from netflower._constants import TCP_FIN, TCP_ACK, TCP_RST
 
 
 class _Writer:
@@ -77,13 +77,35 @@ def test_gc_evicts_flows_exceeding_active_timeout():
     assert len(w.rows) == 1
 
 
-def test_tcp_fin_evicts_flow_immediately():
+def test_single_fin_does_not_evict_flow():
+    """One-sided FIN must not close the flow — the other side's FIN/ACK
+    would otherwise be split into a spurious new flow (CICFlowMeter waits
+    for FIN from both directions)."""
     sess, w = _make()
     sess.process(1.0, "1.1.1.1", "2.2.2.2", 1000, 80, 6, 60, 20, 40, flags=0)
     sess.process(1.1, "1.1.1.1", "2.2.2.2", 1000, 80, 6, 40, 20, 0, flags=TCP_FIN)
+    assert len(w.rows) == 0
+    sess.flush_all()
+    assert len(w.rows) == 1
+
+
+def test_fin_in_both_directions_evicts_flow():
+    sess, w = _make()
+    sess.process(1.0, "1.1.1.1", "2.2.2.2", 1000, 80, 6, 60, 20, 40, flags=0)
+    sess.process(1.1, "1.1.1.1", "2.2.2.2", 1000, 80, 6, 40, 20, 0,
+                 flags=TCP_FIN | TCP_ACK)
+    sess.process(1.2, "2.2.2.2", "1.1.1.1", 80, 1000, 6, 40, 20, 0,
+                 flags=TCP_FIN | TCP_ACK)
     assert len(w.rows) == 1
     sess.flush_all()
     assert len(w.rows) == 1  # nothing left to flush
+
+
+def test_tcp_rst_evicts_flow_immediately():
+    sess, w = _make()
+    sess.process(1.0, "1.1.1.1", "2.2.2.2", 1000, 80, 6, 60, 20, 40, flags=0)
+    sess.process(1.1, "2.2.2.2", "1.1.1.1", 80, 1000, 6, 40, 20, 0, flags=TCP_RST)
+    assert len(w.rows) == 1
 
 
 def test_udp_flow():

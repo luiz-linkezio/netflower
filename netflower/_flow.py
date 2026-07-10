@@ -6,12 +6,10 @@ Statistics are updated incrementally (O(1) per packet) using Welford's
 algorithm — no packet objects are ever stored.
 """
 
-import socket
-import struct
 from ._stats import RunningStats
 from ._constants import (
     ACTIVE_TIMEOUT, CLUMP_TIMEOUT, BULK_BOUND,
-    FORWARD, BACKWARD,
+    FORWARD,
     TCP_FIN, TCP_SYN, TCP_RST, TCP_PSH, TCP_ACK, TCP_URG, TCP_ECE, TCP_CWR,
 )
 
@@ -235,7 +233,7 @@ class Flow:
         self._update_bulk(direction, payload_len, timestamp)
 
     def to_dict(self) -> dict:
-        """Return all 81 flow features as an ordered flat dict."""
+        """Return all 82 flow features as an ordered flat dict."""
         duration = self.latest_time - self.start_time
         total_pkts = self.fwd_pkt_count + self.bwd_pkt_count
         total_bytes = self.fwd_total_bytes + self.bwd_total_bytes

@@ -4,9 +4,6 @@ Computes mean, variance, and std in a single pass with O(1) memory —
 no list of values is ever stored.
 """
 
-__slots__ = ("n", "_mean", "_M2", "total", "min_val", "max_val")
-
-
 class RunningStats:
     __slots__ = ("n", "_mean", "_M2", "total", "min_val", "max_val")
 

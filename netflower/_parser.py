@@ -36,7 +36,7 @@ def _parse_packet(buf: bytes):
         protocol = 6
         flags = transport.flags
         window = transport.win
-        header_len = (transport.off & 0xF0) >> 2
+        header_len = transport.off << 2  # data offset in 32-bit words
         payload_len = len(transport.data)
     elif isinstance(transport, dpkt.udp.UDP):
         src_port = transport.sport

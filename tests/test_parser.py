@@ -67,6 +67,14 @@ def test_tcp_packet_parsed():
     assert pay_len == 4
 
 
+def test_tcp_header_len():
+    # Standard TCP header without options: off=5 words -> 20 bytes
+    buf = _make_tcp_packet(payload=b"data")
+    result = _parse_packet(buf)
+    hdr_len = result[6]
+    assert hdr_len == 20
+
+
 def test_udp_packet_parsed():
     buf = _make_udp_packet(payload=b"query")
     result = _parse_packet(buf)

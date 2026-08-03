@@ -6,7 +6,6 @@ the per-row flush() cost that CICFlowMeter pays on every flow.
 """
 
 import csv
-import io
 from ._constants import CSV_BUFFER_ROWS
 
 

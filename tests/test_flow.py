@@ -1,6 +1,6 @@
 import pytest
-from netflower._flow import Flow, FORWARD, BACKWARD
-from netflower._constants import TCP_SYN, TCP_ACK, TCP_FIN, TCP_PSH
+from netflower._flow import Flow
+from netflower._constants import FORWARD, BACKWARD, TCP_SYN, TCP_ACK, TCP_PSH
 
 
 def _flow(ts=0.0):

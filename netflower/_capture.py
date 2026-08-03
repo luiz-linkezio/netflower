@@ -12,6 +12,7 @@ Usage:
 
 import ctypes
 import threading
+import warnings
 
 from ._libpcap import (
     PcapHandler_cb, PktHdr,
@@ -91,6 +92,7 @@ class CaptureHandle:
     """
 
     _GC_INTERVAL = 1000
+    _JOIN_TIMEOUT = 5.0
 
     def __init__(
         self,
@@ -126,7 +128,9 @@ class CaptureHandle:
         else:
             self._writer = CallbackWriter(self._on_flow)
 
-        self._session = FlowSession(self._writer, self._flow_timeout)
+        self._session = FlowSession(
+            self._writer, self._idle_timeout, active_timeout=self._flow_timeout
+        )
         self._pkt_counter = 0
 
         @PcapHandler_cb
@@ -143,7 +147,9 @@ class CaptureHandle:
                 bwd_key = (proto, dst_ip, src_ip, dst_port, src_port)
                 key = fwd_key if (fwd_key in self._session._flows
                                   or bwd_key not in self._session._flows) else bwd_key
-                self._writer.buffer_packet(key, hdr, buf)
+                # libpcap reuses the pkthdr buffer after the callback returns,
+                # so buffer a copy rather than a view into that memory
+                self._writer.buffer_packet(key, PktHdr.from_buffer_copy(hdr), buf)
             self._session.process(ts, src_ip, dst_ip, src_port, dst_port,
                                   proto, pkt_len, hdr_len, pay_len, flags, win)
             self._pkt_counter += 1
@@ -164,7 +170,16 @@ class CaptureHandle:
         if self._handle:
             pcap_breakloop(self._handle)
         if self._thread:
-            self._thread.join(timeout=5)
+            self._thread.join(timeout=self._JOIN_TIMEOUT)
+            if self._thread.is_alive():
+                # Closing the handle while pcap_loop still uses it would be a
+                # use-after-free; leak it instead and let the caller retry.
+                warnings.warn(
+                    "capture thread did not exit within "
+                    f"{self._JOIN_TIMEOUT}s; pcap handle left open",
+                    RuntimeWarning,
+                )
+                return
         if self._session:
             self._session.flush_all()
         if self._handle:

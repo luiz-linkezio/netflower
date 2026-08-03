@@ -48,8 +48,12 @@ def test_libpcap_has_required_symbols():
         pcap_dump_open, pcap_dump, pcap_dump_close,
         PcapHandler, PcapDumper, PktHdr,
     )
-    assert pcap_open_live is not None
-    assert pcap_loop is not None
+    for symbol in (
+        pcap_open_live, pcap_loop, pcap_breakloop, pcap_close,
+        pcap_dump_open, pcap_dump, pcap_dump_close,
+        PcapHandler, PcapDumper, PktHdr,
+    ):
+        assert symbol is not None
 
 
 def test_callback_writer_calls_on_flow():
@@ -114,6 +118,27 @@ def test_capture_handle_start_stop(monkeypatch):
     assert ("close",) in calls
 
 
+def test_capture_session_honors_both_timeouts(monkeypatch):
+    """idle_timeout must drive idle expiry; flow_timeout is the absolute cap."""
+    from netflower import _capture as cap_mod
+
+    monkeypatch.setattr(cap_mod, "pcap_open_live", lambda *a: ctypes.c_void_p(1))
+    monkeypatch.setattr(cap_mod, "pcap_loop", lambda *a: 0)
+    monkeypatch.setattr(cap_mod, "pcap_breakloop", lambda *a: None)
+    monkeypatch.setattr(cap_mod, "pcap_close", lambda *a: None)
+
+    from netflower._capture import CaptureHandle
+    handle = CaptureHandle(b"eth0", on_flow=lambda f: None,
+                           idle_timeout=30.0, flow_timeout=120.0,
+                           save_pcap=False, pcap_dir=None)
+    handle.start()
+    try:
+        assert handle._session._timeout == 30.0
+        assert handle._session._active_timeout == 120.0
+    finally:
+        handle.stop()
+
+
 def test_capture_handle_context_manager(monkeypatch):
     from netflower import _capture as cap_mod
 
@@ -127,6 +152,68 @@ def test_capture_handle_context_manager(monkeypatch):
                        idle_timeout=30.0, flow_timeout=120.0,
                        save_pcap=False, pcap_dir=None) as h:
         h.start()
+
+
+def test_save_pcap_buffers_header_copy(monkeypatch, tmp_path):
+    """Buffered headers must be copies — libpcap reuses its pkthdr memory
+    between callbacks, so storing a view would corrupt every dumped packet."""
+    from netflower import _capture as cap_mod
+    from netflower._libpcap import PktHdr
+    from test_parser import _make_tcp_packet
+
+    monkeypatch.setattr(cap_mod, "pcap_open_live", lambda *a: ctypes.c_void_p(1))
+    monkeypatch.setattr(cap_mod, "pcap_loop", lambda *a: 0)
+    monkeypatch.setattr(cap_mod, "pcap_breakloop", lambda *a: None)
+    monkeypatch.setattr(cap_mod, "pcap_close", lambda *a: None)
+    monkeypatch.setattr(cap_mod, "pcap_dump_open", lambda *a: None)
+
+    from netflower._capture import CaptureHandle
+    handle = CaptureHandle(b"eth0", on_flow=lambda f: None,
+                           idle_timeout=30.0, flow_timeout=120.0,
+                           save_pcap=True, pcap_dir=str(tmp_path))
+    handle.start()
+    try:
+        pkt = _make_tcp_packet()
+        hdr = PktHdr(ts_sec=100, ts_usec=0, caplen=len(pkt), len=len(pkt))
+        buf = ctypes.create_string_buffer(pkt, len(pkt))
+        handle._callback(None, ctypes.pointer(hdr), ctypes.cast(buf, ctypes.c_void_p))
+
+        # Simulate libpcap overwriting its header buffer after the callback
+        hdr.ts_sec = 999
+
+        [packets] = handle._writer._buffers.values()
+        buffered_hdr, _ = packets[0]
+        assert buffered_hdr.ts_sec == 100
+    finally:
+        handle.stop()
+
+
+def test_stop_does_not_close_handle_while_thread_running(monkeypatch):
+    """pcap_close on a handle still in use by pcap_loop is a use-after-free."""
+    import threading
+    from netflower import _capture as cap_mod
+
+    release = threading.Event()
+    closed = []
+
+    monkeypatch.setattr(cap_mod, "pcap_open_live", lambda *a: ctypes.c_void_p(1))
+    monkeypatch.setattr(cap_mod, "pcap_loop", lambda *a: release.wait())
+    monkeypatch.setattr(cap_mod, "pcap_breakloop", lambda *a: None)
+    monkeypatch.setattr(cap_mod, "pcap_close", lambda *a: closed.append(True))
+
+    from netflower._capture import CaptureHandle
+    handle = CaptureHandle(b"eth0", on_flow=lambda f: None,
+                           idle_timeout=30.0, flow_timeout=120.0,
+                           save_pcap=False, pcap_dir=None)
+    handle._JOIN_TIMEOUT = 0.1
+    handle.start()
+    try:
+        with pytest.warns(RuntimeWarning, match="did not exit"):
+            handle.stop()
+        assert closed == []
+    finally:
+        release.set()
+        handle._thread.join(timeout=5)
 
 
 def test_save_pcap_requires_pcap_dir():

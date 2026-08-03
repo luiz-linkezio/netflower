@@ -1,5 +1,5 @@
 from netflower._session import FlowSession
-from netflower._constants import TCP_FIN
+from netflower._constants import TCP_FIN, TCP_ACK, TCP_RST
 
 
 class _Writer:
@@ -58,13 +58,54 @@ def test_gc_evicts_expired_flows():
     assert len(w.rows) == 1
 
 
-def test_tcp_fin_evicts_flow_immediately():
+def test_active_timeout_splits_long_lived_flow():
+    w = _Writer()
+    sess = FlowSession(w, flow_timeout=100.0, active_timeout=5.0)
+    # packets every 1s — never idle, but total duration exceeds active_timeout
+    for i in range(8):
+        sess.process(1.0 + i, "1.1.1.1", "2.2.2.2", 1000, 80, 6, 60, 20, 40)
+    sess.flush_all()
+    assert len(w.rows) == 2
+
+
+def test_gc_evicts_flows_exceeding_active_timeout():
+    w = _Writer()
+    sess = FlowSession(w, flow_timeout=100.0, active_timeout=5.0)
+    sess.process(1.0, "1.1.1.1", "2.2.2.2", 1000, 80, 6, 60, 20, 40)
+    # idle for only 6s (< 100s idle timeout) but flow is older than 5s
+    sess.gc(7.0)
+    assert len(w.rows) == 1
+
+
+def test_single_fin_does_not_evict_flow():
+    """One-sided FIN must not close the flow — the other side's FIN/ACK
+    would otherwise be split into a spurious new flow (CICFlowMeter waits
+    for FIN from both directions)."""
     sess, w = _make()
     sess.process(1.0, "1.1.1.1", "2.2.2.2", 1000, 80, 6, 60, 20, 40, flags=0)
     sess.process(1.1, "1.1.1.1", "2.2.2.2", 1000, 80, 6, 40, 20, 0, flags=TCP_FIN)
+    assert len(w.rows) == 0
+    sess.flush_all()
+    assert len(w.rows) == 1
+
+
+def test_fin_in_both_directions_evicts_flow():
+    sess, w = _make()
+    sess.process(1.0, "1.1.1.1", "2.2.2.2", 1000, 80, 6, 60, 20, 40, flags=0)
+    sess.process(1.1, "1.1.1.1", "2.2.2.2", 1000, 80, 6, 40, 20, 0,
+                 flags=TCP_FIN | TCP_ACK)
+    sess.process(1.2, "2.2.2.2", "1.1.1.1", 80, 1000, 6, 40, 20, 0,
+                 flags=TCP_FIN | TCP_ACK)
     assert len(w.rows) == 1
     sess.flush_all()
     assert len(w.rows) == 1  # nothing left to flush
+
+
+def test_tcp_rst_evicts_flow_immediately():
+    sess, w = _make()
+    sess.process(1.0, "1.1.1.1", "2.2.2.2", 1000, 80, 6, 60, 20, 40, flags=0)
+    sess.process(1.1, "2.2.2.2", "1.1.1.1", 80, 1000, 6, 40, 20, 0, flags=TCP_RST)
+    assert len(w.rows) == 1
 
 
 def test_udp_flow():

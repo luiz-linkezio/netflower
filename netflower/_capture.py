@@ -143,13 +143,11 @@ class CaptureHandle:
                 return
             src_ip, dst_ip, src_port, dst_port, proto, pkt_len, hdr_len, pay_len, flags, win = parsed
             if self._save_pcap:
-                fwd_key = (proto, src_ip, dst_ip, src_port, dst_port)
-                bwd_key = (proto, dst_ip, src_ip, dst_port, src_port)
-                key = fwd_key if (fwd_key in self._session._flows
-                                  or bwd_key not in self._session._flows) else bwd_key
-                # libpcap reuses the pkthdr buffer after the callback returns,
-                # so buffer a copy rather than a view into that memory
-                self._writer.buffer_packet(key, PktHdr.from_buffer_copy(hdr), buf)
+                key = self._session.key_for(ts, src_ip, dst_ip, src_port, dst_port, proto, flags)
+                if key is not None:
+                    # libpcap reuses the pkthdr buffer after the callback returns,
+                    # so buffer a copy rather than a view into that memory
+                    self._writer.buffer_packet(key, PktHdr.from_buffer_copy(hdr), buf)
             self._session.process(ts, src_ip, dst_ip, src_port, dst_port,
                                   proto, pkt_len, hdr_len, pay_len, flags, win)
             self._pkt_counter += 1

@@ -1,4 +1,5 @@
 FLOW_TIMEOUT = 120.0    # seconds of inactivity before a flow is flushed
+TCP_CLOSE_LINGER = 1.0  # seconds a closed TCP 5-tuple swallows leftover packets
 ACTIVE_TIMEOUT = 5.0    # gap > this separates active from idle periods
 CLUMP_TIMEOUT = 1.0     # gap > this starts a new subflow
 BULK_BOUND = 4          # minimum packets required to register a bulk transfer

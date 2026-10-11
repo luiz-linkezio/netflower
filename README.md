@@ -183,11 +183,25 @@ main process
 
 The routing hash is **bidirectionally deterministic** — `min(a,b), max(a,b), proto` — so forward and backward packets of the same flow always land on the same worker. GC messages are broadcast to all workers every `gc_interval` packets.
 
+### When a flow ends
+
+A flow is emitted when one of these happens:
+
+| Event | What ends | What the next packet on the same 5-tuple does |
+|-------|-----------|-----------------------------------------------|
+| TCP RST, or TCP FIN seen from both directions | the connection | ignored for `TCP_CLOSE_LINGER` seconds, unless it is a SYN without ACK |
+| No packet for the idle timeout | the flow | starts a new flow; its sender is the forward side |
+| Duration cap reached (live capture, `flow_timeout`) | this piece of the connection | continues in a new flow with the same forward and backward sides |
+| End of the PCAP, or `handle.stop()` | every open flow | - |
+
+Packets that trail a closed TCP connection (the last ACK of a teardown, repeated RSTs) used to become one-packet flows with no SYN. Since 1.1.0 they are dropped: in benign IoT captures they were half of all TCP flows, and 99.7% of them arrived within one second of the end of the connection. `FlowSession(..., close_linger=0)` restores the old behaviour.
+
 ### Key constants
 
 | Constant | Value | Role |
 |----------|-------|------|
 | `FLOW_TIMEOUT` | 120 s | Inactivity window that closes a flow |
+| `TCP_CLOSE_LINGER` | 1 s | Time a closed TCP 5-tuple ignores leftover packets |
 | `ACTIVE_TIMEOUT` | 5 s | Gap that ends an active period |
 | `CLUMP_TIMEOUT` | 1 s | Gap that starts a new subflow |
 | `BULK_BOUND` | 4 pkts | Minimum packets to register a bulk transfer |
